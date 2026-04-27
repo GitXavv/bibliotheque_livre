@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: api-livres
+          uri: lb://service-livre
+          predicates:
+            - Path=/api/livres/**
+        - id: api-emprunts
+          uri: lb://service-emprunt
+          predicates:
+            - Path=/api/emprunts/**
+        - id: api-emprunteurs
+          uri: lb://service-emprunteur
+          predicates:
+            - Path=/api/emprunteurs/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
