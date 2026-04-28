@@ -1,4 +1,4 @@
-package com.bibliotheque.serviceemprunt;
+package com.bibliotheque.serviceemprunt.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
