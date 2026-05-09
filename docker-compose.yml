@@ -1,0 +1,119 @@
+services:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MySQL – base de données partagée pour les 3 microservices métier
+  # ─────────────────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Eureka Server – registre de services
+  # ─────────────────────────────────────────────────────────────────────────────
+  eureka-server:
+    image: dockyxavv/eureka-server:latest
+    build:
+      context: ./eureka-server
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8761/ 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Gateway – point d'entrée unique (port 8080)
+  # ─────────────────────────────────────────────────────────────────────────────
+  gateway-service:
+    image: dockyxavv/gateway-service:latest
+    build:
+      context: ./gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Service Livre (port 8083)
+  # ─────────────────────────────────────────────────────────────────────────────
+  service-livre:
+    image: dockyxavv/service-livre:latest
+    build:
+      context: ./service-livre
+    ports:
+      - "8083:8083"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bibliotheque_livre?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ""
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Service Emprunt (port 8084)
+  # ─────────────────────────────────────────────────────────────────────────────
+  service-emprunt:
+    image: dockyxavv/service-emprunt:latest
+    build:
+      context: ./service-emprunt
+    ports:
+      - "8084:8084"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bibliotheque_emprunt?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ""
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Service Emprunteur (port 8082)
+  # ─────────────────────────────────────────────────────────────────────────────
+  service-emprunteur:
+    image: dockyxavv/service-emprunteur:latest
+    build:
+      context: ./service-emprunteur
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/bibliotheque_emprunteur?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ""
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
